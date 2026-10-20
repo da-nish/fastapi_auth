@@ -1,61 +1,58 @@
 
 
-
+from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
-from requests import Session
-from sqlalchemy import select
+import jwt
+from pwdlib import PasswordHash
+from fastapi import HTTPException
+from pwdlib import PasswordHash
 
-from dto.auth_dto import UserDTO, UserResponseDTO
-from models.user_model import  UserModel
+from models.user_model import UserModel
+from repository.auth_repo import AuthRepository
+from routes.request_response_model.auth_request import UserCreate
 
+
+# Set SECRET_KEY in your environment before starting the app.
+SECRET_KEY = "asdfasdf"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 1
+
+password_hash = PasswordHash.recommended()
 
 class AuthService:
   
-  def __init__(self, db: Session):
-     self.db = db
+  def __init__(self, repo: AuthRepository):
+     self.repo = repo
      
-  def create_user(self, user: UserDTO) -> UserResponseDTO:
-    print(user.username)
-    existing_user = (
-      self.db.query(UserModel)
-      .filter(
-          (UserModel.username == user.username) |
-          (UserModel.email == user.email)
-      )
-      .first()
-  )
-    
-    if existing_user:
-        raise HTTPException(
-            status_code=400,
-            detail="Username or email already exists"
-        )
+  def create_user(self, user: UserCreate):
 
-    user = UserModel(
-        username=user.username,
-        email=user.email,
-        hashed_password=user.hashed_password
-    )
+    h_password = password_hash.hash(user.password)
+    user = self.repo.create(email=user.email, username=user.username, hash_password=h_password)
+    # user_object = UserResponseDTO(id=user.id, username=user.username, email=user.email, is_active=user.is_active)
 
-    self.db.add(user)
-    self.db.commit()
-    self.db.refresh(user)
-    
-    
-    user_object = UserResponseDTO(id=user.id, username=user.username, email=user.email, is_active=user.is_active)
-
-    return user_object
   
-  def login_user(self, email: str) -> UserModel | None:
+  def login_user(self, email: str, password: str) -> UserModel | None:
+    
+    
+      user = self.repo.get_user(email)
 
-      user = self.db.scalar(
-        select(UserModel).where(UserModel.email == email)
-      )
-      
       if user is None:
         raise HTTPException(
             status_code=401,
             detail="Invalid username or password",
         )
-  
-      return user
+      
+      print(f"====> {password} __ {user.hashed_password}")
+      
+      if not password_hash.verify(password, user.hashed_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password ---",
+        )
+          
+      expires_at = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+      payload = {
+          "sub": email,
+          "exp": expires_at,
+      }
+      return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
