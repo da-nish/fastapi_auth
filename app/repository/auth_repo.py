@@ -3,7 +3,7 @@
 
 from fastapi import HTTPException
 from requests import Session
-from models.user_model import  UserModel
+from app.models.user_model import  UserModel
 
 
 class AuthRepository:

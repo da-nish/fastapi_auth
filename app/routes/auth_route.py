@@ -4,12 +4,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from database.database import get_db
+from app.database.database import get_db
 from dependency.user_validate import get_current_user
-from models.user_model import UserModel
-from repository.auth_repo import AuthRepository
-from routes.request_response_model.auth_request import UserCreate, UserLogin
-from service.auth_service import AuthService
+from app.models.user_model import UserModel
+from app.repository.auth_repo import AuthRepository
+from app.routes.schemas.auth_request import UserCreate, UserLogin
+from app.service.auth_service import AuthService
 from pydantic import BaseModel, EmailStr
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -39,9 +39,9 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
 
 
 @router.get("/secure")
-def secure_endpoint(username: Annotated[str, Depends(get_current_user)]):
+def secure_endpoint(current_user: Annotated[UserModel, Depends(get_current_user)]):
     return {
         "message": "Access granted",
-        "user": username,
+        "user": current_user.username,
         "data": "This is confidential information",
     }

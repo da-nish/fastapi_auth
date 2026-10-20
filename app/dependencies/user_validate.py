@@ -3,19 +3,23 @@ from typing import Annotated
 import jwt
 from jwt.exceptions import InvalidTokenError
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
 
+from app.core.config import JWT_ALGORITHM, JWT_SECRET_KEY
+from database.database import get_db
+from models.user_model import UserModel
+from app.repository.auth_repo import AuthRepository
 
 bearer_scheme = HTTPBearer()
-
-SECRET_KEY = "asdfasdf"
 
 def get_current_user(
     credentials: Annotated[
         HTTPAuthorizationCredentials,
         Depends(bearer_scheme),
     ],
-):
+    db: Annotated[Session, Depends(get_db)],
+) -> UserModel:
     token = credentials.credentials
     
     credentials_exception = HTTPException(
@@ -27,17 +31,21 @@ def get_current_user(
     try:
         payload = jwt.decode(
             token,
-            SECRET_KEY,
-            algorithms=["HS256"],
+            JWT_SECRET_KEY,
+            algorithms=[JWT_ALGORITHM],
             options={"require": ["exp", "sub"]},
         )
 
-        username = payload.get("sub")
+        subject = payload.get("sub")
 
-        if not isinstance(username, str) or not username:
+        if not isinstance(subject, str) or not subject:
             raise credentials_exception
 
     except InvalidTokenError:
         raise credentials_exception
 
-    return username
+    user = AuthRepository(db).get_user(subject)
+    if user is None or not user.is_active:
+        raise credentials_exception
+
+    return user

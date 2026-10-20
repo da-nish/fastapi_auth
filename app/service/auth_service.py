@@ -4,18 +4,12 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 import jwt
 from pwdlib import PasswordHash
-from fastapi import HTTPException
-from pwdlib import PasswordHash
 
-from models.user_model import UserModel
-from repository.auth_repo import AuthRepository
-from routes.request_response_model.auth_request import UserCreate
+from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, JWT_ALGORITHM, JWT_SECRET_KEY
+from app.models.user_model import UserModel
+from app.repository.auth_repo import AuthRepository
+from app.routes.schemas.auth_request import UserCreate
 
-
-# Set SECRET_KEY in your environment before starting the app.
-SECRET_KEY = "asdfasdf"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1
 
 password_hash = PasswordHash.recommended()
 
@@ -41,8 +35,7 @@ class AuthService:
             status_code=401,
             detail="Invalid username or password",
         )
-      
-      print(f"====> {password} __ {user.hashed_password}")
+    
       
       if not password_hash.verify(password, user.hashed_password):
         raise HTTPException(
@@ -55,4 +48,4 @@ class AuthService:
           "sub": email,
           "exp": expires_at,
       }
-      return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+      return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
