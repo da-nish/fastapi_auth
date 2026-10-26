@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database.database import Base, engine
-from app.routes import auth_route
+from app.routes import admin_route, auth_route
 
 app = FastAPI(
     title="My FastAPI Project",
@@ -40,3 +40,4 @@ def health_check():
 
 
 app.include_router(auth_route.router)
+app.include_router(admin_route.router)
