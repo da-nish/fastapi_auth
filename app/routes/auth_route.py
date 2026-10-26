@@ -2,10 +2,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from app.core.logger import logger
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from dependency.user_validate import get_current_user
+from app.dependencies.user_validate import get_current_user
 from app.models.user_model import UserModel
 from app.repository.auth_repo import AuthRepository
 from app.routes.schemas.auth_request import UserCreate, UserLogin
@@ -16,6 +17,17 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/create")
 def create_user(body: UserCreate, db: Session = Depends(get_db)):
+    logger.info("Home endpoint called")
+    logger.warning("This is a warning")
+    logger.error("Something went wrong")
+    
+    logger.info(
+    "Request completed",
+    extra={
+        "request_id": "req-123",
+        "user_id": 42,
+    },
+)
     
     repo = AuthRepository(db=db)
     service = AuthService(repo=repo)
