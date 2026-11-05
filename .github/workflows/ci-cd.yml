@@ -1,0 +1,70 @@
+name: FastAPI CI/CD
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t fastapi-auth:ci .
+
+      - name: Start FastAPI container
+        run: |
+          docker run -d \
+            --name fastapi-auth-test \
+            -p 8000:8000 \
+            -e DATABASE_URL=sqlite:////tmp/app.db \
+            fastapi-auth:ci
+
+      - name: Test FastAPI health endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8000/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs fastapi-auth-test
+          exit 1
+
+      - name: Cleanup test container
+        if: always()
+        run: |
+          docker rm -f fastapi-auth-test || true
+
+      - name: Login to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag Docker image
+        if: github.event_name == 'push'
+        run: |
+          docker tag fastapi-auth:ci \
+            ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:latest
+
+          docker tag fastapi-auth:ci \
+            ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:${{ github.sha }}
+
+      - name: Push image to Docker Hub
+        if: github.event_name == 'push'
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:latest
+
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:${{ github.sha }}
