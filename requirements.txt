@@ -51,6 +51,7 @@ python-json-logger==4.2.0
 python-multipart==0.0.32
 PyYAML==6.0.3
 requests==2.34.2
+redis==5.2.1
 rich==15.0.0
 slowapi==0.1.9
 rich-toolkit==0.20.6

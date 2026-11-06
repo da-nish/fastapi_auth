@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database.database import Base, engine
-from app.routes import admin_route, auth_route, rate_limit_test_route
+from app.routes import admin_route, auth_route, rate_limit_test_route, redis_test_route
 from app.core import rate_limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
@@ -52,3 +52,4 @@ def health_check():
 app.include_router(auth_route.router)
 app.include_router(admin_route.router)
 app.include_router(rate_limit_test_route.router)
+app.include_router(redis_test_route.router)
