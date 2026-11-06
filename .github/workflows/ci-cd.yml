@@ -71,7 +71,7 @@ jobs:
 
   deploy-to-ec2:
     needs: build-test-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' && needs.build-test-push.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -81,24 +81,32 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
           script: |
+            set -e
+
             # Login to Docker Hub
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login \
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | sudo docker login \
               -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
             # Pull latest image
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:latest
 
-            # Stop and remove old container
-            docker stop fastapi-auth || true
-            docker rm fastapi-auth || true
+            # Stop and remove old containers
+            sudo docker stop fervent_faraday || true
+            sudo docker rm fervent_faraday || true
 
-            # Run updated container
-            docker run -d \
+            # Start updated container on port 80
+            sudo docker run -d \
               --name fastapi-auth \
               --restart unless-stopped \
               -p 80:8000 \
               ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:latest
 
-            # Logout from Docker Hub
-            docker logout
+            # Verify deployment
+            sleep 5
+            sudo docker ps
+
+            curl -f http://localhost/health
+
+            sudo docker logout
