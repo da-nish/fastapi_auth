@@ -20,12 +20,24 @@ jobs:
         run: |
           docker build -t fastapi-auth:ci .
 
+      - name: Start Redis container
+        run: |
+          docker pull redis:7-alpine
+          docker tag redis:7-alpine fastapi-auth-redis:ci
+          docker network create fastapi-auth-ci
+          docker run -d \
+            --name fastapi-auth-redis-test \
+            --network fastapi-auth-ci \
+            fastapi-auth-redis:ci
+
       - name: Start FastAPI container
         run: |
           docker run -d \
             --name fastapi-auth-test \
+            --network fastapi-auth-ci \
             -p 8000:8000 \
             -e DATABASE_URL=sqlite:////tmp/app.db \
+            -e REDIS_URL=redis://fastapi-auth-redis-test:6379/0 \
             fastapi-auth:ci
 
       - name: Test FastAPI health endpoint
@@ -41,10 +53,25 @@ jobs:
           docker logs fastapi-auth-test
           exit 1
 
+      - name: Test Redis endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8000/redis-test; then
+              echo "Redis test passed"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs fastapi-auth-test
+          docker logs fastapi-auth-redis-test
+          exit 1
+
       - name: Cleanup test container
         if: always()
         run: |
-          docker rm -f fastapi-auth-test || true
+          docker rm -f fastapi-auth-test fastapi-auth-redis-test || true
+          docker network rm fastapi-auth-ci || true
 
       - name: Login to Docker Hub
         if: github.event_name == 'push'
@@ -62,9 +89,14 @@ jobs:
           docker tag fastapi-auth:ci \
             ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:${{ github.sha }}
 
+          docker tag fastapi-auth-redis:ci \
+            ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth-redis:7-alpine
+
       - name: Push image to Docker Hub
         if: github.event_name == 'push'
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:latest
 
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:${{ github.sha }}
+
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth-redis:7-alpine
