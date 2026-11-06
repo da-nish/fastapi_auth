@@ -97,7 +97,7 @@ jobs:
             docker run -d \
               --name fastapi-auth \
               --restart unless-stopped \
-              -p 8000:8000 \
+              -p 80:8000 \
               ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-auth:latest
 
             # Logout from Docker Hub
